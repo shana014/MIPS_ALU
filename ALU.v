@@ -3,7 +3,7 @@ module ALU (
 	input [31:0] a, b,
 	input [3:0] ctrl,
 	output reg[31:0] out,
-	output reg zero, overflow, cout
+	output reg zero, overflow
 );
 
 /* 0000	AND
@@ -33,15 +33,13 @@ wire [32:0] add_carry;
 wire [31:0] add_result; // a + b
 wire overflow_add;
 generate 
-  assign add_result[0] = a[0] ^ b[0];
-  assign add_carry[0] = a[0] & b[0];
-  for (i = 1; i < 32; i = i + 1) begin
+  assign add_carry[0] = 1'b0;
+  for (i = 0; i < 32; i = i + 1) begin
     assign add_result[i] = a[i] ^ b[i] ^ add_carry[i];
     assign add_carry[i+1] = (a[i] & b[i]) | (a[i] & add_carry[i]) | (b[i] & add_carry[i]);
   end
 endgenerate
-assign overflow_add = add_carry[31] ^ add_carry[32];
-
+assign overflow_add = (add_carry[31] ^ add_carry[32]);
 wire [32:0] sub_carry;
 wire [31:0] sub_result; // a - b
 wire overflow_sub;
@@ -52,12 +50,10 @@ generate
     assign sub_carry[i+1] = (a[i] & ~(b[i])) | (a[i] & sub_carry[i]) | (~(b[i]) & sub_carry[i]);
   end
 endgenerate
-assign overflow_sub = sub_carry[31] ^ sub_carry[32];
+assign overflow_sub = (sub_carry[31] ^ sub_carry[32]);
 
 wire [31:0] slt_result; // a < b ?
-generate
-  assign slt_result = {31'b0, sub_result[31]};
-endgenerate
+assign slt_result = {31'b0, (overflow_sub ^ sub_result[31])};
 
 wire [31:0] nor_result; // ~a && ~b
 generate 
@@ -67,27 +63,22 @@ generate
 endgenerate
 
 always @* begin
-  cout = 0;
   overflow = 0;
   case (ctrl)
     4'b0000: out = and_result;
     4'b0001: out = or_result;
     4'b0010: begin
 	     	out = add_result;
-		cout = add_carry[32];
 		overflow = overflow_add;
 	     end
     4'b0110: begin
 	     	out = sub_result;
-		cout = sub_carry[32];
 		overflow = overflow_sub;
 	     end
     4'b0111: out = slt_result;
     4'b1100: out = nor_result;
     default: begin
 		out = 32'b0;
-		cout = 0;
-		overflow = 0;
 	     end
   endcase 
   zero = (out == 0);
@@ -95,3 +86,4 @@ end
 
 
 endmodule
+
